@@ -1,0 +1,247 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="kr.co.lol.challenger.ChallengerMapper">
+	
+	<!-- 챌린저유저 데이터 및 페이징 카운트 조회 -->
+	<select id="challengerList" resultType="kr.co.lol.challenger.ChallengerVO">
+		SELECT *,rank() over (ORDER BY leaguePoints DESC) AS ranking 
+		FROM lol_project.challenger
+		ORDER BY leaguePoints DESC
+		LIMIT ${startIdx}, ${pageRow}
+	</select>
+	<select id="challengersCount" resultType="int">
+		SELECT COUNT(*) 
+		FROM lol_project.challenger
+	</select>
+	
+	<!-- 챌린저 게임데이터 및 유저 정보 조회 -->
+	<select id="inGameList" parameterType="String" resultType="kr.co.lol.challenger.InGameDataVO">
+		SELECT *
+			,(SELECT image FROM spells WHERE spell_key = summoner1Id) AS spell1Img
+		    ,(SELECT image FROM spells WHERE spell_key = summoner2Id) AS spell2Img
+		    ,(SELECT icon FROM rune WHERE runeId = mainPerk1) AS mainPerk0Img
+    		,(SELECT icon FROM rune WHERE runeId = subPerk0) AS subPerk0Img
+    		,(SELECT icon FROM item WHERE item_key = item0) AS item0Img
+    		,(SELECT icon FROM item WHERE item_key = item1) AS item1Img
+    		,(SELECT icon FROM item WHERE item_key = item2) AS item2Img
+    		,(SELECT icon FROM item WHERE item_key = item3) AS item3Img
+    		,(SELECT icon FROM item WHERE item_key = item4) AS item4Img
+    		,(SELECT icon FROM item WHERE item_key = item5) AS item5Img
+    		,(SELECT icon FROM item WHERE item_key = item6) AS item6Img
+    		,(SELECT portrait FROM champion WHERE champion_key = championId) AS portrait
+		FROM lol_project.inGameData 
+		WHERE summonerName = #{summonerName}
+		ORDER BY gameEndTimestamp DESC
+		LIMIT 0,20
+	</select>
+	<select id="challengerInfo" parameterType="String" resultType="kr.co.lol.challenger.ChallengerVO">
+		SELECT * FROM lol_project.challenger WHERE summonerName = #{summonerName}
+	</select>
+	
+	<!-- 인게임 10명에 대한 정보 -->
+	<select id="inGameIntegration" parameterType="String" resultType="kr.co.lol.challenger.InGameDataVO">
+		SELECT * FROM lol_project.inGameData 
+		WHERE gameId IN
+			(SELECT gameId 
+				FROM lol_project.inGameData 
+				WHERE summonerName = #{summonerName})
+		ORDER BY gameEndTimestamp DESC
+	</select>
+	
+	<!-- 인게임 같은 팀에 대한 정보 -->
+	<select id="inGameIntegration5" parameterType="String" resultType="kr.co.lol.challenger.InGameDataVO">
+		SELECT * 
+		FROM lol_project.inGameData a 
+		INNER JOIN
+			(SELECT gameId, teamId 
+				FROM lol_project.inGameData 
+				WHERE summonerName = #{summonerName}) b
+		ON a.gameId = b.gameId AND a.teamId = b.teamId
+		ORDER BY gameEndTimestamp DESC, teamPosition
+		LIMIT 0,100
+	</select>
+	
+	<!-- 해당 유저의 모스트 챔피언 데이터 -->
+	<select id="recentMostChampion" parameterType="String" resultType="map">
+		SELECT championId, COUNT(championId) AS champ_count FROM inGameData
+		WHERE summonerName = #{summonerName}
+		GROUP BY championId
+		HAVING COUNT(championId) > 1
+		ORDER BY champ_count DESC
+		LIMIT 0, 20 
+	</select>
+	
+	<!--  -->
+	<select id="recentMostChampionData" parameterType="kr.co.lol.challenger.InGameDataVO" resultType="kr.co.lol.challenger.InGameDataVO">
+		SELECT * FROM lol_project.inGameData 
+		WHERE summonerName = #{summonerName} 
+		AND championId = #{championId}
+	</select>
+	
+	<!-- 챔피언 초상화 URL 출력 -->
+	<select id="championPortrait" parameterType="int" resultType="String">
+		SELECT portrait 
+		FROM champion 
+		WHERE champion_key = #{champion_key}
+	</select>
+	
+	<!-- 선호포지션 카운트 -->
+	<select id="recentChampionCount" parameterType="String" resultType="map">
+		SELECT teamPosition, COUNT(teamPosition) AS champ_count FROM inGameData
+		WHERE summonerName = #{summonerName}
+		GROUP BY teamPosition
+		HAVING COUNT(championId) > 1
+	</select>
+	
+	<!-- 챔피언 사용비율 -->
+	<select id="championRatio" parameterType="String" resultType="kr.co.lol.challenger.InGameDataVO">
+		SELECT championId, COUNT(championId)champ_count, SUM(kills)kills, SUM(deaths)deaths, SUM(assists)assists, SUM(win)win, SUM(cs)cs, SUM(gameDuration)gameDuration
+			,(SELECT * FROM 
+				(SELECT name 
+					FROM champion 
+					WHERE champion_key 
+					IN (championId)) AS n) AS name
+			,(SELECT * FROM
+				(SELECT portrait 
+					FROM champion 
+					WHERE champion_key 
+					IN (championId)) AS p) AS portrait
+		FROM inGameData
+		WHERE summonerName = #{summonerName} 
+		GROUP BY championId
+		ORDER BY champ_count DESC
+	</select>
+	
+	<!-- 듀오승률 -->
+	<select id="duoRatio" parameterType="String" resultType="kr.co.lol.challenger.InGameDataVO">
+		SELECT z.summonerName, COUNT(summonerName) AS name_count, SUM(win) AS win
+			,(SELECT profileIcon FROM challenger d WHERE d.summonerName in (z.summonerName))as profileIcon
+		FROM inGameData z
+		WHERE gameId IN ( 
+			SELECT * FROM(
+				SELECT gameId 
+				FROM inGameData 
+				WHERE summonerName = #{summonerName}
+				LIMIT 20
+			) AS gil 
+		)
+		GROUP BY summonerName
+		HAVING COUNT(summonerName) > 2
+		ORDER BY COUNT(summonerName) DESC
+	</select>
+	
+	<!-- 해당하는 게임의 유저들에 대한 데이터 조회 -->
+	<select id="oneGameData" parameterType="kr.co.lol.challenger.InGameDataVO" resultType="kr.co.lol.challenger.InGameDataVO">
+		SELECT * FROM lol_project.inGameData 
+		WHERE gameId IN
+			(SELECT gameId 
+				FROM lol_project.inGameData 
+				WHERE summonerName = #{summonerName})
+		and gameId = #{gameId}
+		ORDER BY gameEndTimestamp DESC
+	</select>
+	
+	<!-- 스펠조회 -->
+	<select id="spellList" parameterType="int" resultType="String">
+		SELECT image FROM spells WHERE spell_key = #{spell_key}
+	</select>
+	<!-- 룬조회 -->
+	<select id="runeList" parameterType="int" resultType="String">
+		SELECT icon FROM rune WHERE runeId = #{runeId}
+	</select>
+	<!-- 킬조회 -->
+	
+	<!-- 해당유저 모든데이터 조회 -->
+	<select id="slist" parameterType="long" resultType="kr.co.lol.challenger.QueryVO">
+		select no as index_no, summonerName as s_name, kills as killed, deaths as death, assists as assist, gainGold as gold
+		, champLevel as level, teamId as redbul, wardsKilled as w_kill, wardsPlaced as w_place, visionWards v_ward
+		, totalDamageDealt as dealt, totalDamageTaken as taken, cs as qcs
+		, dragonKills as dra_kill, baronKills as bar_kill, turretKills tur_kill
+			,(select portrait from champion where champion_key = championId) as championIcon
+			,(select icon from rune where runeId = mainPerk1) as mainPerk0Imgs
+		    ,(select icon from rune where runeId = subPerk0) as subPerk0Imgs
+		    ,(select image from spells where spell_key = summoner1Id) as spell1Imgs
+		    ,(select image from spells where spell_key = summoner2Id) as spell2Imgs
+		    ,(select icon from item where item_key = item0) AS item0Imgs
+		    ,(select icon from item where item_key = item1) AS item1Imgs
+		    ,(select icon from item where item_key = item2) AS item2Imgs
+		    ,(select icon from item where item_key = item3) AS item3Imgs
+		    ,(select icon from item where item_key = item4) AS item4Imgs
+		    ,(select icon from item where item_key = item5) AS item5Imgs
+		    ,(select icon from item where item_key = item6) AS item6Imgs
+		from inGameData
+		where gameId = #{gameId}
+	</select>
+	
+	<!-- 해당유저의 아이템 데이터 -->
+	<select id="itemBuild" parameterType="map" resultType="map">
+	   select gameId, timestamp, action_type, (select icon from item where item_key = itemId) as icon
+		from timelineData 
+		where gameId = #{gameId} 
+			and (action_type = 'ITEM_PURCHASED' or action_type = 'ITEM_DESTROYED') 
+		    and participantId = 
+				(select participantId 
+					from per_min_userData 
+		            where puuid = #{puuid} 
+		            and gameId = #{gameId})
+	</select>
+	<!-- 해당유저의 고유 아이디 검색 -->
+	<select id="puuid" parameterType="String" resultType="String">
+		SELECT puuid FROM lol_project.challenger WHERE summonerName = #{summonerName}
+	</select>
+	
+	<!-- 해당유저의 스킬트리 -->
+	<select id="skillBuild" parameterType="map" resultType="map">
+		select gameId, timestamp, action_type, skillSlot
+			, (select qImage from champion where champion_key = #{champion_key}) as qIcon
+		    , (select wImage from champion where champion_key = #{champion_key}) as wIcon
+		    , (select eImage from champion where champion_key = #{champion_key}) as eIcon
+		    , (select rImage from champion where champion_key = #{champion_key}) as rIcon
+		from timelineData 
+		where gameId = #{gameId}	
+		and action_type = 'SKILL_LEVEL_UP'
+		and participantId = 
+			(select participantId 
+				from per_min_userData 
+				where puuid = #{puuid} 
+				and gameId = #{gameId})
+	</select>
+	
+	<!-- etc -->
+	<select id="gameJoinTimeLineData" parameterType="map" resultType="map">
+		SELECT a.gameId, a.teamId, a.championId, a.summonerName, a.teamPosition, b.puuid, b.participantId  
+		FROM lol_project.inGameData a
+		INNER JOIN
+		(select * from per_min_userData where gameId =#{gameId}) b
+		on a.puuid = b.puuid
+		WHERE a.gameId IN
+			(SELECT gameId 
+				FROM lol_project.inGameData 
+				WHERE summonerName = #{summonerName})
+		and a.gameId = #{gameId}	
+		ORDER BY gameEndTimestamp DESC
+	</select>
+	
+	<!-- 해당게임에 대한 특정 유저의 분당 정보 -->
+	<select id="etcList" parameterType="map" resultType="map">
+		select * from per_min_champData where gameId = #{gameId} and participantId = #{participantId} 
+	</select>
+	
+	
+	
+	
+	
+	
+	
+</mapper>
+
+
+
+
+
+
+
+
+
+
+

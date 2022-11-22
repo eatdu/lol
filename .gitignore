@@ -1,3 +1,10 @@
+.classpath
+.project
+.springBeans
+.settings/
+target/
+servlet-context.xml
+
 # Compiled class file
 *.class
 
