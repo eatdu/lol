@@ -299,7 +299,6 @@
 		$(".analysis-btn-1").click(function() {
 			var idx = $(this).index(".analysis-btn-1");
 			if ($(".inGameListOpen").eq(idx).css('display') == 'none') {
-				$(".team-analysis-list").eq(idx).hide();
 				$(".inGameListOpen").eq(idx).show();
 				$(".champion-build").eq(idx).hide();
 				$(".etc-chart-list").eq(idx).hide();
@@ -413,7 +412,7 @@
 	.etc-champion-img {display: flex;justify-content: space-evenly;}
 	.userName-div {display: flex;font-size:5px;flex-direction: row;justify-content: space-evenly;}
 	.inGameList-analysis-box{display:none;}
-	.team-analysis-list{width: 700px;height: 610px;margin-left: -11px;}
+	/* .team-analysis-list{width: 700px;height: 610px;margin-left: -11px;} */
 </style>
 <head>
 <meta charset="UTF-8">
@@ -1058,7 +1057,6 @@
 							    </table>
 							</div>			
 			       		</div>	
-				       	<div class="team-analysis-list">
 						    <!-- <ul class="team-analysis-boxList">
 						        <li><button class="game-analysis-btn1">경기 분석</button></li>
 						        <li><button class="game-analysis-btn2">골드 &amp; 킬</button></li>
@@ -1629,7 +1627,6 @@
 					        	<div class="userName-div"></div>
 					        	<div class="etc-gold-chart-${idx.index}" style="width:700px;height:400px;"></div>
 					        </div>
-						</div>
 				    </div>
 				</c:forEach>
 			</div>
